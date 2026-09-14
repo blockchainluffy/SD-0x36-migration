@@ -55,7 +55,12 @@ contract Step2_VerifySpace is Step1_CreateSpace {
         check("minVotingDuration (blocks)", s.minVotingDuration(), P.minVotingDuration);
         check("maxVotingDuration (blocks)", s.maxVotingDuration(), P.maxVotingDuration);
         check("daoURI", s.daoURI(), P.daoURI);
-        check("nextProposalId", s.nextProposalId(), 1);
+        if (attached) {
+            // A live space has already had proposals; only a fresh one starts at 1.
+            checkTrue("nextProposalId >= 1 (space initialised)", s.nextProposalId() >= 1);
+        } else {
+            check("nextProposalId", s.nextProposalId(), 1);
+        }
 
         _section("voting strategies");
         check("registered strategy count", s.nextVotingStrategyIndex(), 1);

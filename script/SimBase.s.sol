@@ -111,6 +111,13 @@ abstract contract SimBase is Script {
 
     /// @dev Forks mainnet unless we are already on a fork (e.g. `forge test` set one up).
     function _setUpFork() internal {
+        _setUpForkNoAttach();
+        _readAttachConfig();
+    }
+
+    /// @dev Fork setup without the attach-mode (space+strategy) requirement. Used by the
+    ///      standalone tx builders, which need only a space or only a strategy.
+    function _setUpForkNoAttach() internal {
         _loadParams();
         if (P.forkBlock == 0) {
             vm.createSelectFork(P.rpcUrl);
@@ -118,7 +125,6 @@ abstract contract SimBase is Script {
             vm.createSelectFork(P.rpcUrl, P.forkBlock);
         }
         require(block.chainid == 1, "fork is not Ethereum mainnet");
-        _readAttachConfig();
     }
 
     // =====================================================================
