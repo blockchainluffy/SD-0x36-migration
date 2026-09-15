@@ -87,6 +87,9 @@ library Cfg {
     ///         root in params (not the member array). This is what a real space uses.
     address internal constant MERKLE_WHITELIST_VOTING_STRATEGY = 0x34f0AfFF5A739bBf3E285615F50e40ddAaf2A829;
 
+    /// @notice Safe MultiSendCallOnly v1.3.0 — for delegatecall batch execution tests.
+    address internal constant MULTISEND_CALL_ONLY = 0x40A2aCCbd92BCA938b02010E17A5b8929b49130D;
+
     /// @notice `getStrategyType()` of AvatarExecutionStrategy.
     string internal constant AVATAR_STRATEGY_TYPE = "SimpleQuorumAvatar";
 

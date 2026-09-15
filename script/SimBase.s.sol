@@ -475,16 +475,28 @@ abstract contract SimBase is Script {
         internal
         returns (uint256 proposalId)
     {
+        bytes memory payload;
+        (proposalId, payload) = _proposeAndVote(txs, label);
+        ISpace(space).execute(proposalId, payload);
+        lastProposalId = proposalId;
+    }
+
+    /// @dev propose -> vote (For, to quorum) -> roll to finalizable, but do NOT execute.
+    ///      Returns the id and payload so the caller can execute (or assert it reverts,
+    ///      or execute from an arbitrary sender).
+    function _proposeAndVote(MetaTransaction[] memory txs, string memory label)
+        internal
+        returns (uint256 proposalId, bytes memory payload)
+    {
         require(space != address(0) && strategy != address(0), "space/strategy not set");
         _provisionSimVoters();
 
-        bytes memory payload = abi.encode(txs);
+        payload = abi.encode(txs);
         Strategy memory execStrategy = Strategy({ addr: strategy, params: payload });
 
         IAuthenticator auth = IAuthenticator(Cfg.ETH_TX_AUTHENTICATOR);
         proposalId = ISpace(space).nextProposalId();
 
-        // --- propose -----------------------------------------------------
         IndexedStrategy[] memory userStrategies = new IndexedStrategy[](1);
         userStrategies[0] = IndexedStrategy({ index: 0, params: "" });
 
@@ -496,7 +508,6 @@ abstract contract SimBase is Script {
         );
         console.log(string.concat("   proposed: ", label, "  id ="), proposalId);
 
-        // --- vote --------------------------------------------------------
         if (P.votingDelay > 0) vm.roll(block.number + P.votingDelay);
 
         vm.prank(Cfg.SIM_PROPOSER);
@@ -508,11 +519,7 @@ abstract contract SimBase is Script {
             space, ISpace.vote.selector, abi.encode(Cfg.SIM_VOTER, proposalId, Choice.For, userStrategies, "")
         );
 
-        // --- finalize ----------------------------------------------------
         if (P.minVotingDuration > 0) vm.roll(block.number + P.minVotingDuration);
-
-        ISpace(space).execute(proposalId, payload);
-        lastProposalId = proposalId;
     }
 
     /// @notice Funds and delegates two simulation-only voters out of the treasury.

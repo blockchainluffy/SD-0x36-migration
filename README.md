@@ -19,8 +19,13 @@ cp .env.example .env          # optional; sensible defaults are built in
 ./sim.sh 4                    # just step 4 (steps 1-3 replay first)
 ./sim.sh probe                # what works before the module is enabled
 ./sim.sh azorius              # prove Azorius can do nothing after removal
+./sim.sh exec-matrix          # everything the module can execute + gov admin (see below)
 ./sim.sh test                 # the same thing as a forge test suite
 ```
+
+> **Since the module is live on mainnet, run against the real deployment (attach
+> mode).** A plain fresh-from-scratch run at the latest block no longer sees a pristine
+> Safe, so pass the real addresses — see [Attach mode](#attach-mode-running-a-step-against-the-real-space).
 
 Once the real space exists on mainnet, point any step at it and run that step on
 its own:
@@ -225,6 +230,67 @@ Two findings that matter for sequencing:
 
 ---
 
+## Building the enable-module transaction
+
+Once the real strategy exists, generate the executable `enableModule(strategy)`
+transaction — the single action of Decent Vote 1 (Step 4) — as standalone files:
+
+```bash
+./sim.sh enable-tx --strategy 0xSTRATEGY [--space 0xSPACE]
+# or: SNAPSHOT_X_STRATEGY=0x… forge script script/BuildEnableModuleTx.s.sol
+```
+
+`script/BuildEnableModuleTx.s.sol` first **verifies the strategy on a fork** — type
+`SimpleQuorumAvatar`, `owner == target == Safe`, not already a module, and (with
+`--space`) that it whitelists the space. Those are safety properties and **block**
+emission if any fails; `quorum()` is reported but not blocking. Then it writes three
+files under `./sim`:
+
+| File | Contents |
+|---|---|
+| `enableModule.calldata.txt` | the raw `0x610b5925…` calldata, one line |
+| `enableModule.tx.json` | the full transaction (to / value / operation / data / selector) |
+| `enableModule.safe-batch.json` | a Safe Transaction Builder batch, importable into the Safe / Zodiac app |
+
+The transaction is a **self-call on the Safe** (`to == the Safe`) and must be
+executed with `msg.sender == the Safe`, i.e. as the action of a passed Decent
+proposal (`execTransactionFromModule`). The calldata is verified to match
+`cast calldata "enableModule(address)" <strategy>`.
+
+---
+
+## Execution matrix: what the module can do
+
+```bash
+./sim.sh exec-matrix --space 0xSPACE --strategy 0xSTRATEGY
+```
+
+Once the strategy is enabled as a module, this proves the treasury operations a real
+DAO actually performs, beyond the single SHU transfer Step 5 covers. Runs against the
+live module (attach) or a fresh one (it inherits through Step 4, which enables it).
+
+**Treasury execution coverage:**
+1. **Native ETH transfer** (`value > 0`) — moves ETH out of the Safe.
+2. **Multi-action proposal** — several actions executed atomically from one vote.
+3. **DelegateCall batch via MultiSendCallOnly** (`operation = 1`) — the delegatecall
+   path real Safe tooling uses; nothing else in the harness exercised it.
+4. **Atomic failure** — a proposal whose action reverts reverts the whole `execute`
+   (`ExecutionFailed`); the good action rolls back too and the proposal stays `Pending`
+   (retriable).
+5. **Permissionless execution** — any address (not just proposer/voter) can execute a
+   passed proposal.
+
+**Governance administering itself** (each change is made *and reversed* by governance):
+6. **DAO retunes its own strategy** — a proposal calls `strategy.setQuorum` (owner = the
+   Safe); a non-owner's call reverts; a second proposal restores it.
+7. **DAO reconfigures the Safe** — proposals add/remove a Safe owner and set/clear a
+   transaction guard; and the guard is shown **not** to gate module execution (in Safe
+   v1.3.0 a tx guard hooks `execTransaction`, not `execTransactionFromModule`).
+8. **Security Council `updateSettings`** — the controller changes a live space setting
+   (voting delay); a non-controller's call reverts; then it is restored.
+
+All of it runs on a throwaway fork and leaves governance parameters as it found them.
+
 ## Attach mode: running a step against the real space
 
 By default Step 1 creates the space, and each later step replays the ones before it
@@ -247,6 +313,20 @@ Find the strategy address from the space-create transaction:
 
 Everything still runs on a fresh in-memory mainnet fork, so nothing is broadcast and
 the real DAO is never touched. Pin `FORK_BLOCK` to rehearse against a specific block.
+
+### Running the whole test suite
+
+Because the strategy is now enabled as a module on mainnet, run the `forge test` suite
+in **attach mode** against the real deployment (no archive node needed):
+
+```bash
+./sim.sh test --space 0xSPACE --strategy 0xSTRATEGY
+# or: SNAPSHOT_X_SPACE=0x… SNAPSHOT_X_STRATEGY=0x… forge test
+```
+
+The fresh, create-from-scratch mode (`forge test` with no addresses) only starts from a
+pristine Safe *before* the module was enabled — to use it now, pin `FORK_BLOCK` to a
+pre-migration block (the module was enabled at block 25974587) with an archive RPC.
 
 The verification asserts the deployment against the doc's expected parameters, which are
 the built-in defaults — so a space created to the doc verifies with **no overrides**:
@@ -479,8 +559,9 @@ script/SimBase.s.sol             fork setup, calldata builders, both execution
                                  paths, the doc test matrix, the assertion tally
 script/Step1..Step6              the six steps; each inherits the previous
 script/ProbeNotYetEnabled.s.sol  what works before the module is enabled
+script/ExecMatrix.s.sol          ETH/batch/delegatecall/failure/perm-exec + gov admin
 script/RunAll.s.sol              all five
-test/Migration.t.sol             the same five, as a forge test suite
+test/Migration.t.sol             every step + probe/azorius/exec-matrix, as forge tests
 sim.sh                           driver
 sim/state.json                   output: addresses + production calldata
 ```

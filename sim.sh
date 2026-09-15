@@ -8,6 +8,7 @@
 #   ./sim.sh test       run the same thing as a forge test suite
 #   ./sim.sh probe      what works before the module is enabled?
 #   ./sim.sh azorius    prove Azorius can do nothing after removal
+#   ./sim.sh exec-matrix ETH/batch/delegatecall/failure/perm-exec + gov admin tests
 #
 # Set the dev wallet that signs "Create" in the UI (salts the space + strategy
 # addresses and is the space's initial controller):
@@ -44,6 +45,7 @@ while [ $# -gt 0 ]; do
     --strategy)   export SNAPSHOT_X_STRATEGY="$2"; shift 2;;
     --deployer)   export SPACE_DEPLOYER="$2"; shift 2;;
     --controller) export SPACE_CONTROLLER="$2"; shift 2;;
+    --proposal)   export PROPOSAL_ID="$2"; shift 2;;
     *)          ARGS+=("$1"); shift;;
   esac
 done
@@ -59,11 +61,12 @@ case "$STEP" in
   all) SCRIPT=script/RunAll.s.sol ;;
   probe) SCRIPT=script/ProbeNotYetEnabled.s.sol ;;
   azorius) SCRIPT=script/AzoriusNeutralized.s.sol ;;
+  exec-matrix) SCRIPT=script/ExecMatrix.s.sol:ExecMatrix ;;
   test) exec forge test "$@" ;;
   -h|--help|help)
     sed -n '3,28p' "$0" | sed 's/^# \{0,1\}//'
     exit 0 ;;
-  *) echo "unknown step: $STEP (expected 1-6, all, probe, azorius, or test)" >&2; exit 1 ;;
+  *) echo "unknown step: $STEP (expected 1-6, all, probe, azorius, exec-matrix, or test)" >&2; exit 1 ;;
 esac
 
 mkdir -p sim

@@ -73,6 +73,23 @@ struct Proposal {
     uint256 activeVotingStrategies;
 }
 
+/// @dev Mirrors sx-evm `UpdateSettingsCalldata`. Fields left at their NO_UPDATE sentinel
+///      are ignored by `Space.updateSettings`.
+struct UpdateSettingsCalldata {
+    uint32 minVotingDuration;
+    uint32 maxVotingDuration;
+    uint32 votingDelay;
+    string metadataURI;
+    string daoURI;
+    Strategy proposalValidationStrategy;
+    string proposalValidationStrategyMetadataURI;
+    address[] authenticatorsToAdd;
+    address[] authenticatorsToRemove;
+    Strategy[] votingStrategiesToAdd;
+    string[] votingStrategyMetadataURIsToAdd;
+    uint8[] votingStrategiesToRemove;
+}
+
 struct InitializeCalldata {
     address owner;
     uint32 votingDelay;
@@ -118,6 +135,8 @@ interface ISpace {
     /// @notice Controller-only. The Security Council's veto: a Pending proposal can be
     ///         cancelled at any point before it executes.
     function cancel(uint256 proposalId) external;
+
+    function updateSettings(UpdateSettingsCalldata calldata input) external;
 
     /// @notice Controller-only. Used to hand the space from the deploying wallet to the
     ///         Security Council multisig.
