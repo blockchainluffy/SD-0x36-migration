@@ -10,6 +10,7 @@ import { Step4_EnableModule } from "../script/Step4_EnableModule.s.sol";
 import { Step5_VerifyVoting } from "../script/Step5_VerifyVoting.s.sol";
 import { Step6_RemoveAzorius } from "../script/Step6_RemoveAzorius.s.sol";
 import { AzoriusNeutralized } from "../script/AzoriusNeutralized.s.sol";
+import { ExecMatrix } from "../script/ExecMatrix.s.sol";
 
 /// @notice CI form of the simulation. Each step script reverts if any of its
 ///         checks fail, so a green test run means every assertion held.
@@ -41,5 +42,9 @@ contract MigrationTest is Test {
 
     function test_AzoriusNeutralized() public {
         new AzoriusNeutralized().run();
+    }
+
+    function test_ExecMatrix() public {
+        new ExecMatrix().run();
     }
 }

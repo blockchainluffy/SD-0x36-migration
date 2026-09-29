@@ -3,3 +3,5 @@ cache/
 broadcast/
 sim/
 .env
+!sim/vote2.actions.json
+.DS_Store

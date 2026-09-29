@@ -2,13 +2,25 @@
 #
 # sim.sh — driver for the Shutter DAO 0x36 governance migration simulation.
 #
-#   ./sim.sh            run all six steps
-#   ./sim.sh 4          run step 4 (steps 1-3 are replayed first)
-#   ./sim.sh all -vvv   pass extra flags straight through to forge
-#   ./sim.sh test       run the same thing as a forge test suite
-#   ./sim.sh probe      what works before the module is enabled?
-#   ./sim.sh azorius    prove Azorius can do nothing after removal
+# Simulations (fork only, nothing is signed or broadcast):
+#
+#   ./sim.sh             run all six steps
+#   ./sim.sh 4           run step 4 (steps 1-3 are replayed first)
+#   ./sim.sh all -vvv    pass extra flags straight through to forge
+#   ./sim.sh test        run the same thing as a forge test suite
+#   ./sim.sh probe       what works before the module is enabled?
+#   ./sim.sh azorius     prove Azorius can do nothing after removal
 #   ./sim.sh exec-matrix ETH/batch/delegatecall/failure/perm-exec + gov admin tests
+#   ./sim.sh veto-window when can the Security Council still cancel a proposal?
+#   ./sim.sh quorum      which vote choices count towards quorum?
+#
+# Transaction builders (write ready-to-use files into ./sim):
+#
+#   ./sim.sh enable-tx --strategy 0xSTRATEGY        Vote 1: enableModule(strategy)
+#                                                   (Vote 1 is already done on mainnet,
+#                                                    so this now stops on purpose)
+#   ./sim.sh vote2-tx  --strategy 0xSTRATEGY        Vote 2: swapOwner + disableModule
+#   ./sim.sh cancel-tx --space 0xSPACE --proposal 5 Security Council veto: cancel(id)
 #
 # Set the dev wallet that signs "Create" in the UI (salts the space + strategy
 # addresses and is the space's initial controller):
@@ -62,11 +74,22 @@ case "$STEP" in
   probe) SCRIPT=script/ProbeNotYetEnabled.s.sol ;;
   azorius) SCRIPT=script/AzoriusNeutralized.s.sol ;;
   exec-matrix) SCRIPT=script/ExecMatrix.s.sol:ExecMatrix ;;
+  veto-window) SCRIPT=script/VetoWindow.s.sol ;;
+  quorum) SCRIPT=script/QuorumRules.s.sol ;;
+  enable-tx) SCRIPT=script/BuildEnableModuleTx.s.sol ;;
+  vote2-tx) SCRIPT=script/BuildVote2Tx.s.sol ;;
+  cancel-tx)
+    SCRIPT=script/BuildCancelProposalTx.s.sol
+    : "${PROPOSAL_ID:?cancel-tx needs a proposal id: ./sim.sh cancel-tx --space 0x... --proposal 5}" ;;
   test) exec forge test "$@" ;;
   -h|--help|help)
-    sed -n '3,28p' "$0" | sed 's/^# \{0,1\}//'
+    sed -n '3,40p' "$0" | sed 's/^# \{0,1\}//'
     exit 0 ;;
-  *) echo "unknown step: $STEP (expected 1-6, all, probe, azorius, exec-matrix, or test)" >&2; exit 1 ;;
+  *)
+    echo "unknown step: $STEP" >&2
+    echo "expected one of: 1-6, all, probe, azorius, exec-matrix, veto-window, quorum," >&2
+    echo "                 enable-tx, vote2-tx, cancel-tx, test        (./sim.sh help)" >&2
+    exit 1 ;;
 esac
 
 mkdir -p sim
