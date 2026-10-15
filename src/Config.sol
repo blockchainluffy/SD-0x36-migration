@@ -90,6 +90,11 @@ library Cfg {
     /// @notice Safe MultiSendCallOnly v1.3.0 — for delegatecall batch execution tests.
     address internal constant MULTISEND_CALL_ONLY = 0x40A2aCCbd92BCA938b02010E17A5b8929b49130D;
 
+    /// @notice sx-evm `PropositionPowerAndActiveProposalsLimiterValidationStrategy`. Same
+    ///         proposition-power check as PROPOSITION_POWER_VALIDATION, plus a per-author
+    ///         limit of `maxActiveProposals` proposals per `cooldown` seconds.
+    address internal constant PROPOSITION_POWER_AND_LIMITER_VALIDATION = 0x358e4Ba219CC1e1c7084A14c3a504772acfc40b1;
+
     /// @notice `getStrategyType()` of AvatarExecutionStrategy.
     string internal constant AVATAR_STRATEGY_TYPE = "SimpleQuorumAvatar";
 
@@ -117,6 +122,30 @@ library Cfg {
             0x0f853a4c50763e0553Ac44E2546C0178B417c0Ba
         ];
     }
+
+    // ---------------------------------------------------------------------
+    // The live Snapshot X deployment on mainnet
+    // ---------------------------------------------------------------------
+
+    address internal constant LIVE_SPACE = 0x594EB60b35C4E91A06a5df988e0504f7463cB769;
+    address internal constant LIVE_STRATEGY = 0x5716a3b2d988Bd7a2D95942ee8a175D27a75E7bB;
+
+    // ---------------------------------------------------------------------
+    // Proposal rules change: 50M SHU threshold, one proposal per address per 24h
+    // ---------------------------------------------------------------------
+
+    /// @notice New proposition-power threshold: 50,000,000 SHU.
+    uint256 internal constant NEW_PROPOSAL_THRESHOLD = 50_000_000e18;
+
+    /// @notice New deemed SHU power of each whitelisted proposer. Must be at least the
+    ///         new threshold, or the nine members lose their proposer role.
+    uint96 internal constant NEW_WHITELIST_VP = 50_000_000e18;
+
+    /// @notice The rate-limit window, in seconds (the limiter uses block.timestamp).
+    uint256 internal constant PROPOSAL_COOLDOWN = 24 hours;
+
+    /// @notice Proposals each address may create per PROPOSAL_COOLDOWN.
+    uint256 internal constant MAX_PROPOSALS_PER_COOLDOWN = 1;
 
     // ---------------------------------------------------------------------
     // Simulation-only actors (never real addresses)
