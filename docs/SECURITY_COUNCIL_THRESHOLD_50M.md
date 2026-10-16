@@ -26,12 +26,18 @@ We tested this exact change on a copy of the live space. Everything worked as ex
 
    ![Proposal settings](images/threshold-step1.png)
 
-4. Click the pencil on **Voting power**. Set the threshold to
-   `50000000000000000000000000` and click **Confirm**.
+4. Click the pencil on **Voting power**. In **Proposal threshold**, replace the value
+   with the number below, then click **Confirm**.
+
+   ```
+   50000000000000000000000000
+   ```
 
    ![Edit threshold](images/threshold-step2.png)
 
-5. Click the pencil on **Whitelist (9 addresses)**. Replace the whole field with the text
+5. Click the pencil on **Whitelist (9 addresses)**. Each line is `address:amount`. Change
+   the amount on every line to `50000000000000000000000000`, as shown for the first two
+   lines in the picture. The easiest way is to replace the whole field with the text
    below. Leave **Symbol** as `SHU`, then click **Confirm**.
 
    ![Edit whitelist](images/threshold-step3.png)
