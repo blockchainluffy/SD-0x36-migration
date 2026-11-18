@@ -13,6 +13,8 @@
 #   ./sim.sh exec-matrix ETH/batch/delegatecall/failure/perm-exec + gov admin tests
 #   ./sim.sh veto-window when can the Security Council still cancel a proposal?
 #   ./sim.sh quorum      which vote choices count towards quorum?
+#   ./sim.sh proposal-rules   50M SHU threshold + whitelist at 50M + 1 proposal / 24h
+#                             (RATE_LIMIT=0 for the threshold-only variant)
 #
 # Transaction builders (write ready-to-use files into ./sim):
 #
@@ -21,6 +23,17 @@
 #                                                    so this now stops on purpose)
 #   ./sim.sh vote2-tx  --strategy 0xSTRATEGY        Vote 2: swapOwner + disableModule
 #   ./sim.sh cancel-tx --space 0xSPACE --proposal 5 Security Council veto: cancel(id)
+#   ./sim.sh proposal-rules-tx                      Security Council: updateSettings with
+#                                                   the new proposal rules
+#
+# Sepolia testnet helpers (read-only):
+#
+#   ./sim.sh token-balance --account 0xADDR [--token 0xTOKEN]
+#                        decimals of a Sepolia ERC20 and the balance of an address
+#   ./sim.sh testnet-rate-limit --space 0xSPACE [--broadcast]
+#                        switch a Sepolia test space to the rate-limited validator.
+#                        Dry run by default; --broadcast sends it, signed with
+#                        SEPOLIA_PRIVATE_KEY from .env. MODE=revert switches back.
 #
 # Set the dev wallet that signs "Create" in the UI (salts the space + strategy
 # addresses and is the space's initial controller):
@@ -58,6 +71,8 @@ while [ $# -gt 0 ]; do
     --deployer)   export SPACE_DEPLOYER="$2"; shift 2;;
     --controller) export SPACE_CONTROLLER="$2"; shift 2;;
     --proposal)   export PROPOSAL_ID="$2"; shift 2;;
+    --account)    export ACCOUNT="$2"; shift 2;;
+    --token)      export TOKEN="$2"; shift 2;;
     *)          ARGS+=("$1"); shift;;
   esac
 done
@@ -76,19 +91,40 @@ case "$STEP" in
   exec-matrix) SCRIPT=script/ExecMatrix.s.sol:ExecMatrix ;;
   veto-window) SCRIPT=script/VetoWindow.s.sol ;;
   quorum) SCRIPT=script/QuorumRules.s.sol ;;
+  proposal-rules|proposal-rules-tx)
+    # These run against the live space, so default to its addresses.
+    export SNAPSHOT_X_SPACE="${SNAPSHOT_X_SPACE:-0x594EB60b35C4E91A06a5df988e0504f7463cB769}"
+    export SNAPSHOT_X_STRATEGY="${SNAPSHOT_X_STRATEGY:-0x5716a3b2d988Bd7a2D95942ee8a175D27a75E7bB}"
+    if [ "$STEP" = proposal-rules ]; then SCRIPT=script/ProposalRules.s.sol
+    else SCRIPT=script/BuildProposalRulesTx.s.sol; fi ;;
   enable-tx) SCRIPT=script/BuildEnableModuleTx.s.sol ;;
   vote2-tx) SCRIPT=script/BuildVote2Tx.s.sol ;;
   cancel-tx)
     SCRIPT=script/BuildCancelProposalTx.s.sol
     : "${PROPOSAL_ID:?cancel-tx needs a proposal id: ./sim.sh cancel-tx --space 0x... --proposal 5}" ;;
   test) exec forge test "$@" ;;
+  testnet-rate-limit)
+    # --space means the Sepolia test space here.
+    export SPACE="${SPACE:-${SNAPSHOT_X_SPACE:-}}"
+    : "${SPACE:?testnet-rate-limit needs a space: ./sim.sh testnet-rate-limit --space 0x...}"
+    mkdir -p sim
+    SEPOLIA_RPC_URL="${SEPOLIA_RPC_URL:-https://ethereum-sepolia-rpc.publicnode.com}"
+    export SEPOLIA_RPC_URL
+    # The controller wallet uses more gas than forge estimates, so allow 2x.
+    exec forge script script/TestnetRateLimit.s.sol -vv --rpc-url "$SEPOLIA_RPC_URL" \
+      --gas-estimate-multiplier 200 "$@" ;;
+  token-balance)
+    : "${ACCOUNT:?token-balance needs an address: ./sim.sh token-balance --account 0x...}"
+    exec forge script script/CheckSepoliaToken.s.sol -vv "$@" ;;
   -h|--help|help)
-    sed -n '3,40p' "$0" | sed 's/^# \{0,1\}//'
+    sed -n '3,54p' "$0" | sed 's/^# \{0,1\}//'
     exit 0 ;;
   *)
     echo "unknown step: $STEP" >&2
     echo "expected one of: 1-6, all, probe, azorius, exec-matrix, veto-window, quorum," >&2
-    echo "                 enable-tx, vote2-tx, cancel-tx, test        (./sim.sh help)" >&2
+    echo "                 proposal-rules, enable-tx, vote2-tx, cancel-tx," >&2
+    echo "                 proposal-rules-tx, token-balance, testnet-rate-limit, test" >&2
+    echo "                 (./sim.sh help)" >&2
     exit 1 ;;
 esac
 

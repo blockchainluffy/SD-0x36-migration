@@ -30,9 +30,12 @@ import {
 ///         The allowed strategies stay [delegated SHU, Merkle whitelist]; only the
 ///         whitelist's Merkle root changes (same nine addresses, 50M each).
 ///
-///         RATE_LIMIT=0 builds the threshold-only variant instead: the same 50M changes,
-///         but the plain PropositionPower contract and no 24h limit. That variant is the
-///         one snapshot.box can display and propose against today (see the doc).
+///         Changes 1 and 2 are already live on mainnet (checked 18 November 2026, on the
+///         plain PropositionPower contract). Applying the settings now only adds change 3.
+///
+///         RATE_LIMIT=0 builds the threshold-only variant instead: the same 50M settings
+///         on the plain PropositionPower contract and no 24h limit. Those are the settings
+///         the live space already has, so this variant changes nothing today.
 /// @dev    Env overrides: NEW_PROPOSAL_THRESHOLD, NEW_WHITELIST_VP, PROPOSAL_COOLDOWN,
 ///         MAX_PROPOSALS_PER_COOLDOWN, RATE_LIMIT, PV_METADATA_URI.
 abstract contract ProposalRulesBase is SimBase {
@@ -47,7 +50,8 @@ abstract contract ProposalRulesBase is SimBase {
 
     Rules internal R;
 
-    /// @dev The threshold and whitelist power the live space is expected to have today.
+    /// @dev The threshold the live space had before the 50M change. Used to check that a
+    ///      10M holder can no longer propose.
     uint256 internal constant OLD_THRESHOLD = 10_000_000e18;
 
     function _loadRules() internal {
@@ -122,7 +126,11 @@ abstract contract ProposalRulesBase is SimBase {
         // all dynamic arrays stay empty (no add/remove)
     }
 
+    /// @dev    SETTINGS_CALLDATA replays a real transaction (e.g. one queued in the Safe)
+    ///         instead of the one built here, so the checks run against its exact bytes.
     function _updateSettingsCalldata() internal view returns (bytes memory) {
+        bytes memory given = vm.envOr("SETTINGS_CALLDATA", bytes(""));
+        if (given.length > 0) return given;
         return abi.encodeCall(ISpace.updateSettings, (_newSettings()));
     }
 

@@ -291,6 +291,21 @@ live module (attach) or a fresh one (it inherits through Step 4, which enables i
 
 All of it runs on a throwaway fork and leaves governance parameters as it found them.
 
+## New proposal rules: 50M SHU threshold, one proposal per 24h
+
+```bash
+./sim.sh proposal-rules       # simulate on the live space (66 checks)
+./sim.sh proposal-rules-tx    # build the Security Council updateSettings transaction
+```
+
+Raises the proposal threshold to 50M SHU, raises the nine whitelisted proposers' deemed
+power to 50M so they keep their role, and limits each address to one proposal per 24
+hours. The 50M changes are already live on mainnet; only the 24 hour limit is left.
+`RATE_LIMIT=0` gives the 50M-only version. See
+[`docs/PROPOSAL_RULES.md`](./docs/PROPOSAL_RULES.md) for the details and the testnet
+rehearsal, and [`docs/SECURITY_COUNCIL_RATE_LIMIT.md`](./docs/SECURITY_COUNCIL_RATE_LIMIT.md)
+for the Security Council's steps.
+
 ## Attach mode: running a step against the real space
 
 By default Step 1 creates the space, and each later step replays the ones before it

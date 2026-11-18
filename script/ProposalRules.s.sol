@@ -19,7 +19,8 @@ import {
 /// @notice Forks mainnet, applies the change to the REAL space as its controller (the
 ///         Security Council), and proves each rule:
 ///
-///           A. baseline     the live space is at 10M SHU, whitelist at 10M, no limit
+///           A. baseline     the live space is at 50M SHU, whitelist at 50M, no limit
+///                           (the 50M change is already applied on mainnet)
 ///           B. apply        one updateSettings call; nothing else in the space changes
 ///           C. threshold    10M and 50M-minus-1-wei are rejected, exactly 50M is accepted
 ///           D. whitelist    all nine members can still propose with 50M deemed power;
@@ -81,13 +82,15 @@ contract ProposalRules is ProposalRulesBase {
         (address addr,,, uint256 threshold, Strategy[] memory allowed) = _liveRules();
         _section("current proposal validation");
         check("strategy is PropositionPower (no rate limit)", addr, Cfg.PROPOSITION_POWER_VALIDATION);
-        check("threshold is 10M SHU", threshold, OLD_THRESHOLD);
+        check("threshold is 50M SHU", threshold, Cfg.NEW_PROPOSAL_THRESHOLD);
         check("allowed strategy count", allowed.length, 2);
         check("allowed[0] is OZ Votes", allowed[0].addr, Cfg.OZ_VOTES_VOTING_STRATEGY);
         checkBytes("allowed[0] reads SHU", allowed[0].params, abi.encodePacked(Cfg.SHU));
         check("allowed[1] is the Merkle whitelist", allowed[1].addr, Cfg.MERKLE_WHITELIST_VOTING_STRATEGY);
         check(
-            "whitelist root = nine members at 10M", abi.decode(allowed[1].params, (bytes32)), _rootAt(Cfg.WHITELIST_VP)
+            "whitelist root = nine members at 50M",
+            abi.decode(allowed[1].params, (bytes32)),
+            _rootAt(Cfg.NEW_WHITELIST_VP)
         );
 
         _section("the rate-limited validation contract (sx-evm deployment)");
@@ -96,13 +99,16 @@ contract ProposalRules is ProposalRulesBase {
         checkTrue("has code", limiter.code.length > 0);
         check("is not an upgradeable proxy", vm.load(limiter, EIP1967_IMPL_SLOT), bytes32(0));
 
-        _section("control: under today's rules a 10M holder and a whitelisted member can propose");
-        address holder10 = _holderWith("10M", OLD_THRESHOLD);
-        checkTrue("10M SHU holder can propose", _tryPropose(holder10, _viaShu(), "old rules: 10M holder"));
-        checkTrue("member 7 with the 10M proof can propose", _tryPropose(_member(7), _viaOldWhitelist(7), "old"));
+        _section("control: under today's rules a 50M holder and a whitelisted member can propose");
+        address holder50 = _holderWith("50M-today", Cfg.NEW_PROPOSAL_THRESHOLD);
+        checkTrue("50M SHU holder can propose", _tryPropose(holder50, _viaShu(), "today: 50M holder"));
         checkTrue(
-            "member 7 can propose again at once (no limit today)", _tryPropose(_member(7), _viaOldWhitelist(7), "x")
+            "50M SHU holder can propose again at once (no limit today)", _tryPropose(holder50, _viaShu(), "today: x")
         );
+        IndexedStrategy[] memory member7 = _viaWhitelistAt(7, Cfg.NEW_WHITELIST_VP, _member(7));
+        checkTrue("member 7 with the 50M proof can propose", _tryPropose(_member(7), member7, "today"));
+        checkTrue("member 7 can propose again at once (no limit today)", _tryPropose(_member(7), member7, "x"));
+        checkRejected("member 7 with the old 10M proof is rejected", _member(7), _viaOldWhitelist(7), INVALID_PROOF);
     }
 
     // =====================================================================
@@ -210,7 +216,7 @@ contract ProposalRules is ProposalRulesBase {
         _banner("C  |  THRESHOLD  |  50M SHU of delegated power to propose");
 
         address holder10 = _holderWith("10M-after", OLD_THRESHOLD);
-        checkRejected("10M SHU holder is now rejected", holder10, _viaShu(), FAILED_VALIDATION);
+        checkRejected("10M SHU holder is rejected", holder10, _viaShu(), FAILED_VALIDATION);
 
         address edge = _holderWith("edge", R.threshold - 1);
         _ok("edge holder votes:", shu.getVotes(edge));
@@ -233,7 +239,7 @@ contract ProposalRules is ProposalRulesBase {
     function _whitelist() internal {
         _banner("D  |  WHITELIST  |  nine members keep their proposer role at 50M");
 
-        _section("the old 10M proof no longer works (its leaf is not in the new tree)");
+        _section("the old 10M proof still does not work (its leaf is not in the 50M tree)");
         checkRejected("member 0 with the 10M proof is rejected", _member(0), _viaOldWhitelist(0), INVALID_PROOF);
 
         _section("every member can propose with the 50M proof");
